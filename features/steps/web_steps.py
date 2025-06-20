@@ -129,13 +129,6 @@ def step_impl(context, message):
     )
     assert(found)
 
-##################################################################
-# This code works because of the following naming convention:
-# The id field for text input in the html is the element name
-# prefixed by ID_PREFIX so the Name field has an id='pet_name'
-# We can then lowercase the name and prefix with pet_ to get the id
-##################################################################
-
 @then('I should see "{text_string}" in the "{element_name}" field')
 def step_impl(context, text_string, element_name):
     element_id = ID_PREFIX + element_name.lower().replace(' ', '_')
@@ -146,6 +139,24 @@ def step_impl(context, text_string, element_name):
         )
     )
     assert(found)
+
+@then('I should not see "{name}" in the results')
+def step_impl(context, name):
+    search_results_element = WebDriverWait(context.driver, context.wait_seconds).until(
+        expected_conditions.presence_of_element_located((By.ID, 'search_results'))
+    )
+
+    results_text = search_results_element.text
+    assert(name not in results_text)
+
+##################################################################
+# This code works because of the following naming convention:
+# The id field for text input in the html is the element name
+# prefixed by ID_PREFIX so the Name field has an id='pet_name'
+# We can then lowercase the name and prefix with pet_ to get the id
+##################################################################
+
+
 
 @when('I change "{element_name}" to "{text_string}"')
 def step_impl(context, element_name, text_string):
