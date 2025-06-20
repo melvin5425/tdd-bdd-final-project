@@ -27,7 +27,7 @@ import os
 import logging
 import unittest
 from decimal import Decimal
-from service.models import Product, Category, db
+from service.models import Product, Category, db, DataValidationError
 from service import app
 from tests.factories import ProductFactory
 
@@ -189,3 +189,62 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(found.count(), count)
         for product in found:
             self.assertEqual(product.category, category)
+
+    def test_update_no_id(self):
+        """It should not update a Product with no ID and raise DataValidationError"""
+        product = Product(
+            name="Unsaved Product",
+            description="A product not yet in the DB",
+            price=Decimal("123.45"),
+            available=True,
+            category=Category.TOOLS # Example category
+        )
+        self.assertIsNone(product.id)
+        with self.assertRaisesRegex(DataValidationError, "Update called with empty ID field"):
+            product.update()
+
+    def test_deserialize_available_bad_type(self):
+        """It should not deserialize a Product with an invalid type for available"""
+        product_data = {
+            "name": "Test Product",
+            "description": "A test product for invalid available type",
+            "price": "10.00",
+            "category": "CLOTHS",
+            "available": "invalid_boolean_string" # <--- This is the bad data
+        }
+        product = Product()
+        expected_error_regex = r"Invalid type for boolean \[available\]: <class 'str'>"
+        with self.assertRaisesRegex(DataValidationError, expected_error_regex):
+            product.deserialize(product_data)
+
+    def test_deserialize_non_dict_data(self):
+        """It should raise DataValidationError if deserialize input is not a dictionary"""
+        product = Product()
+        bad_input_data = "this is definitely not a product dictionary"
+        expected_error_regex = r"Invalid product: body of request contained bad or no data string indices must be integers"
+        with self.assertRaisesRegex(DataValidationError, expected_error_regex):
+            product.deserialize(bad_input_data)
+
+    def test_deserialize_none_data(self):
+        """It should raise DataValidationError if deserialize input is None"""
+        product = Product()
+        no_input_data = None
+        expected_error_regex = r"Invalid product: body of request contained bad or no data 'NoneType' object is not subscriptable"
+        with self.assertRaisesRegex(DataValidationError, expected_error_regex):
+            product.deserialize(no_input_data)
+
+    def test_deserialize_invalid_category_attribute(self):
+        """It should raise DataValidationError when category attribute is invalid"""
+        product = Product()
+        product_data = {
+            "name": "Invalid Category Item",
+            "description": "This item has a category that does not exist",
+            "price": "19.99",
+            "available": True,
+            "category": "NON_EXISTENT_CATEGORY" # <--- This will trigger the AttributeError
+        }
+        expected_error_message = "Invalid attribute: NON_EXISTENT_CATEGORY"
+        with self.assertRaisesRegex(DataValidationError, expected_error_message):
+            product.deserialize(product_data)
+
+    
